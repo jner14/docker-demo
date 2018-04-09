@@ -1,0 +1,2 @@
+filename=Clark_County NEVADA 1746.csv
+minimum=5
