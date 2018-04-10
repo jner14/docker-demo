@@ -10,6 +10,7 @@ import re
 import pandas as pd
 import sys
 from time import sleep, time
+from datetime import datetime as dt
 from multiprocessing import Process, Queue, cpu_count
 from bs4 import BeautifulSoup as bs
 
@@ -22,6 +23,7 @@ def main(workers=0, limit=None):
         level=logging.ERROR,
         filename='main.log',
         format='%(relativeCreated)6d %(threadName)s %(message)s')
+    logging.error('STARTING NEW ENTRY AT %s' % str(dt.now()))
 
     # Load settings
     with open('settings.txt', 'r') as f:
@@ -72,19 +74,20 @@ def main(workers=0, limit=None):
         sleep(10)
 
     for n, p in jobs:
-        p.join(1)
+        p.join(timeout=.1)
         print('Worker %s process has joined' % n)
 
     # Get worker results and save as a csv called results.csv
     results = pd.DataFrame(columns=['Email', 'Results'])
     i = 0
     while q.qsize() > 0:
-        r = q.get(timeout=1)
-        print(i, r)
+        r = q.get(timeout=.2)
+        # print(i, r)
         results.loc[len(results)] = r
         i += 1
 
     results.to_csv('results.csv')
+    print('Results written to results.csv...')
 
     print("Time Elapsed: {:.2f}s".format(time() - st))
 
@@ -113,15 +116,23 @@ class Worker(object):
                 raw = urllib.request.urlopen(v.URL)  #.read().decode('utf-8')
             except urllib.error.HTTPError as e:
                 print('Worker %s ran into error 418 at %s' % (self.id, v.URL))
-                self.q.put((v.Email, ''))
+                logging.error(v.URL + str(e))
+                self.q.put((v.Email, '418 error'))
                 continue
             except UnicodeDecodeError as e:
                 print('Worker %s ran into decoding error at %s' % (self.id, v.URL))
-                self.q.put((v.Email, ''))
+                logging.error(v.URL + str(e))
+                self.q.put((v.Email, 'decoding error'))
                 continue
             except urllib.error.URLError as e:
                 print('Worker %s ran into url error at %s' % (self.id, v.URL))
-                self.q.put((v.Email, ''))
+                logging.error(v.URL + str(e))
+                self.q.put((v.Email, 'url error'))
+                continue
+            except Exception as e:
+                print('Worker %s ran into unknown error at %s' % (self.id, v.URL))
+                logging.error(v.URL + str(e))
+                self.q.put((v.Email, 'unknown error'))
                 continue
             soup = bs(raw, 'lxml')
             data = soup.findAll(text=True)
@@ -161,6 +172,6 @@ class Globs(object):
 
 
 if __name__ == '__main__':
-    main(workers=8, limit=None)
+    main(workers=32, limit=None)
 
-    print('Finished')
+    print('Finished!')
