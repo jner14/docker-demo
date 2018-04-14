@@ -140,7 +140,7 @@ class Worker(object):
             # p = re.compile("(.{15}%s.{15})" % username[:self.minmatch], re.IGNORECASE)
             # m = p.match(raw)
             result = [x.strip() for x in filter(visible, data)]
-            result = [x for x in result if username[:self.minmatch] in x.lower() and '@' not in x]
+            result = [x for x in result if (username[:self.minmatch] in x.lower() or username[-self.minmatch:] in x.lower()) and '@' not in x]
             result = '; '.join(list(set(result)))
             self.q.put((v.Email, result))
             # print('pass')
